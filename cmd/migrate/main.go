@@ -1,14 +1,17 @@
 package main
 
 import (
+	"embed"
 	"log"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	// migrations "github.com/Snip123/ai-test-assets-service/internal/migrations"
 )
+
+//go:embed ../../internal/migrations/*.sql
+var migrationsFS embed.FS
 
 func main() {
 	dbURL := os.Getenv("DATABASE_URL")
@@ -16,11 +19,19 @@ func main() {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	// TODO: embed migrations FS and apply
-	// See ADR-0015 for the full migration job pattern
-	log.Printf("Running migrations against %s", dbURL)
+	src, err := iofs.New(migrationsFS, "internal/migrations")
+	if err != nil {
+		log.Fatalf("load migrations: %v", err)
+	}
 
-	_ = migrate.ErrNoChange // placeholder
-	_ = iofs.New           // placeholder
-	log.Println("Migrations complete")
+	m, err := migrate.NewWithSourceInstance("iofs", src, dbURL)
+	if err != nil {
+		log.Fatalf("create migrator: %v", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("migrate up: %v", err)
+	}
+
+	log.Println("migrations applied successfully")
 }

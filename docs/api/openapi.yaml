@@ -8,29 +8,156 @@ info:
 
 servers:
   - url: /v1
-    description: Local development
 
-paths: {}
+paths:
+  /assets:
+    get:
+      operationId: listAssets
+      summary: List Assets for the authenticated Tenant
+      tags: [Assets]
+      responses:
+        "200":
+          description: List of Assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetList'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      operationId: registerAsset
+      summary: Register a new Asset
+      tags: [Assets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterAssetRequest'
+      responses:
+        "201":
+          description: Asset registered successfully
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /assets/{id}:
+    get:
+      operationId: getAsset
+      summary: Get a single Asset by ID
+      tags: [Assets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Asset found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+        "404":
+          $ref: '#/components/responses/NotFound'
 
 components:
-  schemas: {}
-
-  responses:
-    Problem:
-      description: RFC 7807 problem details
-      content:
-        application/problem+json:
-          schema:
-            $ref: '#/components/schemas/Problem'
-
   schemas:
+    Asset:
+      type: object
+      required: [id, tenant_id, name, asset_type, facility_id, status, created_at]
+      properties:
+        id:            { type: string, description: ULID identifier }
+        tenant_id:     { type: string }
+        name:          { type: string }
+        asset_type:    { type: string, description: Canonical Asset Type }
+        facility_id:   { type: string }
+        serial_number: { type: string }
+        status:
+          type: string
+          enum: [Active, Decommissioned]
+          description: Canonical Asset Status (ADR-0004)
+        display:
+          type: object
+          description: Tenant Value resolutions for UI display (ADR-0004)
+          properties:
+            asset_type: { type: string }
+            status:     { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AssetList:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    RegisterAssetRequest:
+      type: object
+      required: [name, asset_type, facility_id]
+      properties:
+        name:          { type: string, minLength: 1 }
+        asset_type:    { type: string }
+        facility_id:   { type: string }
+        serial_number: { type: string }
+
+    Pagination:
+      type: object
+      required: [has_more]
+      properties:
+        next_cursor: { type: string }
+        has_more:    { type: boolean }
+        total_count: { type: integer }
+
     Problem:
       type: object
       required: [type, title, status]
       properties:
-        type:    { type: string, format: uri }
-        title:   { type: string }
-        status:  { type: integer }
-        detail:  { type: string }
+        type:     { type: string, format: uri }
+        title:    { type: string }
+        status:   { type: integer }
+        detail:   { type: string }
         instance: { type: string }
         trace_id: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Insufficient Platform Role
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnprocessableEntity:
+      description: Validation error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'

@@ -1,0 +1,36 @@
+openapi: "3.1.0"
+info:
+  title: ai-test-assets-service
+  version: "1.0.0"
+  description: |
+    API for the Assets bounded context.
+    All requests require X-Tenant-ID header (injected by gateway — ADR-0011).
+
+servers:
+  - url: /v1
+    description: Local development
+
+paths: {}
+
+components:
+  schemas: {}
+
+  responses:
+    Problem:
+      description: RFC 7807 problem details
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:    { type: string, format: uri }
+        title:   { type: string }
+        status:  { type: integer }
+        detail:  { type: string }
+        instance: { type: string }
+        trace_id: { type: string }

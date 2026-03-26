@@ -2,12 +2,15 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/Snip123/ai-test-assets-service/internal/domain"
 	"github.com/oklog/ulid/v2"
 )
+
+var ErrAssetNotFound = errors.New("asset not found")
 
 // AssetRepository is the port this use case depends on.
 // The postgres adapter implements this interface.
@@ -87,4 +90,16 @@ func (s *AssetService) RegisterAsset(ctx context.Context, cmd RegisterAssetComma
 // ListAssets returns all Assets for a Tenant.
 func (s *AssetService) ListAssets(ctx context.Context, tenantID string) ([]domain.Asset, error) {
 	return s.repo.List(ctx, tenantID)
+}
+
+// GetAsset returns a single Asset by ID within a Tenant.
+func (s *AssetService) GetAsset(ctx context.Context, id, tenantID string) (domain.Asset, error) {
+	asset, err := s.repo.Get(ctx, id, tenantID)
+	if err != nil {
+		if err.Error() == "get asset: no rows in result set" {
+			return domain.Asset{}, ErrAssetNotFound
+		}
+		return domain.Asset{}, fmt.Errorf("get asset: %w", err)
+	}
+	return asset, nil
 }

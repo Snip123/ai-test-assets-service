@@ -10,7 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
-//go:embed ../../internal/migrations/*.sql
+//go:embed migrations/*.sql
 var migrationsFS embed.FS
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	src, err := iofs.New(migrationsFS, "internal/migrations")
+	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
 		log.Fatalf("load migrations: %v", err)
 	}

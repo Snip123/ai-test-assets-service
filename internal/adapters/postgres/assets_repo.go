@@ -2,20 +2,20 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/Snip123/ai-test-assets-service/internal/domain"
 	db "github.com/Snip123/ai-test-assets-service/internal/generated/db"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AssetRepo struct {
-	pool    *pgxpool.Pool
+	sqlDB   *sql.DB
 	queries *db.Queries
 }
 
-func NewAssetRepo(pool *pgxpool.Pool) *AssetRepo {
-	return &AssetRepo{pool: pool, queries: db.New(pool)}
+func NewAssetRepo(sqlDB *sql.DB) *AssetRepo {
+	return &AssetRepo{sqlDB: sqlDB, queries: db.New(sqlDB)}
 }
 
 func (r *AssetRepo) Create(ctx context.Context, a domain.Asset) (domain.Asset, error) {
@@ -25,7 +25,7 @@ func (r *AssetRepo) Create(ctx context.Context, a domain.Asset) (domain.Asset, e
 		Name:         a.Name,
 		AssetType:    a.AssetType,
 		FacilityID:   a.FacilityID,
-		SerialNumber: pgText(a.SerialNumber),
+		SerialNumber: sql.NullString{String: a.SerialNumber, Valid: a.SerialNumber != ""},
 		Status:       string(a.Status),
 	})
 	if err != nil {
@@ -63,17 +63,8 @@ func toDomain(row db.Asset) domain.Asset {
 		FacilityID:   row.FacilityID,
 		SerialNumber: row.SerialNumber.String,
 		Status:       domain.AssetStatus(row.Status),
-		CreatedAt:    row.CreatedAt.Time,
-		UpdatedAt:    row.UpdatedAt.Time,
+		CreatedAt:    row.CreatedAt,
+		UpdatedAt:    row.UpdatedAt,
 	}
 }
 
-func pgText(s string) interface{ Valid bool } {
-	// pgx nullable text helper — returns pgtype.Text
-	// Replaced by sqlc generated type in practice; stub for compilation
-	type pgText struct {
-		String string
-		Valid  bool
-	}
-	return pgText{String: s, Valid: s != ""}
-}

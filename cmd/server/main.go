@@ -12,7 +12,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -23,6 +25,7 @@ import (
 )
 
 func main() {
+	_ = godotenv.Load() // load .env if present (local dev only — no-op in production)
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -37,13 +40,10 @@ func run(ctx context.Context) error {
 	natsURL := env("NATS_URL", nats.DefaultURL)
 
 	// ── Database ──────────────────────────────────────────────────────────────
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("connect postgres: %w", err)
-	}
-	defer pool.Close()
+	sqlDB := stdlib.OpenDB(*mustParseDSN(dbURL))
+	defer sqlDB.Close()
 
-	if err := pool.Ping(ctx); err != nil {
+	if err := sqlDB.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping postgres: %w", err)
 	}
 	log.Println("postgres connected")
@@ -62,7 +62,7 @@ func run(ctx context.Context) error {
 	log.Println("nats connected")
 
 	// ── Wire dependencies ─────────────────────────────────────────────────────
-	repo := postgres.NewAssetRepo(pool)
+	repo := postgres.NewAssetRepo(sqlDB)
 	publisher := events.NewPublisher(js)
 	svc := application.NewAssetService(repo, publisher)
 	handler := httpports.NewAssetHandler(svc)
@@ -140,4 +140,12 @@ func mustEnv(key string) string {
 		log.Fatalf("required env var %s is not set", key)
 	}
 	return v
+}
+
+func mustParseDSN(dsn string) *pgx.ConnConfig { //nolint:unparam
+	cfg, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		log.Fatalf("parse DATABASE_URL: %v", err)
+	}
+	return cfg
 }

@@ -112,14 +112,17 @@ func (h *AssetHandler) getAsset(w http.ResponseWriter, r *http.Request) {
 		attribute.String("asset_id", id),
 	)
 
-	asset, err := h.svc.ListAssets(ctx, tenantID) // TODO: replace with GetAsset
-	_ = asset
+	asset, err := h.svc.GetAsset(ctx, id, tenantID)
 	if err != nil {
+		if err == application.ErrAssetNotFound {
+			writeProblem(w, r, http.StatusNotFound, "asset-not-found", "Asset Not Found",
+				fmt.Sprintf("Asset %q does not exist in this tenant", id))
+			return
+		}
 		writeProblem(w, r, http.StatusInternalServerError, "get-asset-failed", "Failed to get asset", err.Error())
 		return
 	}
-	writeProblem(w, r, http.StatusNotFound, "asset-not-found", "Asset Not Found",
-		fmt.Sprintf("Asset %q does not exist in this tenant", id))
+	writeJSON(w, http.StatusOK, toAPIAsset(asset))
 }
 
 // ── response helpers ──────────────────────────────────────────────────────────

@@ -36,7 +36,7 @@ This service follows the platform constitution. Key references — load these on
 
 ### Before implementing any feature
 1. Check @docs/features/ for an existing `.feature` file
-2. If none exists — generate a Gherkin draft and ask for confirmation before writing code
+2. If none exists — **STOP. Do not write any code.** Write a Gherkin draft, present it to the developer, and wait for explicit confirmation before touching any `.go` file. This applies regardless of how the request was phrased.
 3. Verify all terms used are in the platform ubiquitous language
 
 ### Before any architectural decision

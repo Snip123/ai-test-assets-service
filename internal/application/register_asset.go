@@ -11,19 +11,34 @@ import (
 )
 
 var ErrAssetNotFound = errors.New("asset not found")
+var ErrAssetAlreadyDecommissioned = errors.New("asset is already decommissioned")
 
-// AssetRepository is the port this use case depends on.
-// The postgres adapter implements this interface.
+// AssetRepository is the port this bounded context depends on for persistence.
 type AssetRepository interface {
 	Create(ctx context.Context, asset domain.Asset) (domain.Asset, error)
 	List(ctx context.Context, tenantID string) ([]domain.Asset, error)
 	Get(ctx context.Context, id, tenantID string) (domain.Asset, error)
+	Update(ctx context.Context, id, tenantID, name, serialNumber string) (domain.Asset, error)
+	Decommission(ctx context.Context, id, tenantID string) (domain.Asset, error)
+	SetLocation(ctx context.Context, id, tenantID, facilityID, locationID string) (domain.Asset, error)
 }
 
-// EventPublisher is the port for publishing domain events.
-// The NATS adapter implements this interface.
+// EventPublisher is the port for publishing domain events to NATS JetStream.
 type EventPublisher interface {
 	PublishAssetRegistered(ctx context.Context, event domain.AssetRegisteredEvent) error
+	PublishAssetAttributesUpdated(ctx context.Context, event domain.AssetAttributesUpdatedEvent) error
+	PublishAssetDecommissioned(ctx context.Context, event domain.AssetDecommissionedEvent) error
+	PublishAssetLocationSet(ctx context.Context, event domain.AssetLocationSetEvent) error
+}
+
+// AssetService handles all Asset use cases for this bounded context.
+type AssetService struct {
+	repo      AssetRepository
+	publisher EventPublisher
+}
+
+func NewAssetService(repo AssetRepository, publisher EventPublisher) *AssetService {
+	return &AssetService{repo: repo, publisher: publisher}
 }
 
 // RegisterAssetCommand carries the input for registering a new Asset.
@@ -33,16 +48,6 @@ type RegisterAssetCommand struct {
 	AssetType    string
 	FacilityID   string
 	SerialNumber string
-}
-
-// AssetService handles Asset use cases.
-type AssetService struct {
-	repo      AssetRepository
-	publisher EventPublisher
-}
-
-func NewAssetService(repo AssetRepository, publisher EventPublisher) *AssetService {
-	return &AssetService{repo: repo, publisher: publisher}
 }
 
 // RegisterAsset creates a new Asset and publishes an AssetRegistered domain event.

@@ -15,6 +15,7 @@ type Asset struct {
 	Name         string         `json:"name"`
 	AssetType    string         `json:"asset_type"`
 	FacilityID   string         `json:"facility_id"`
+	LocationID   sql.NullString `json:"location_id"`
 	SerialNumber sql.NullString `json:"serial_number"`
 	Status       string         `json:"status"`
 	CreatedAt    time.Time      `json:"created_at"`

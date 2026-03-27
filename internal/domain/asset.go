@@ -10,6 +10,7 @@ type Asset struct {
 	Name         string
 	AssetType    string
 	FacilityID   string
+	LocationID   string
 	SerialNumber string
 	Status       AssetStatus
 	CreatedAt    time.Time
@@ -21,16 +22,42 @@ type Asset struct {
 type AssetStatus string
 
 const (
-	AssetStatusActive       AssetStatus = "Active"
-	AssetStatusDecommission AssetStatus = "Decommissioned"
+	AssetStatusActive        AssetStatus = "Active"
+	AssetStatusDecommissioned AssetStatus = "Decommissioned"
 )
 
-// AssetRegisteredEvent is the domain event published when a new Asset is registered.
-// Published to NATS subject: fsi.{tenant-id}.assets.AssetRegistered (ADR-0016).
+// AssetRegisteredEvent is published when a new Asset is registered.
+// Subject: fsi.{tenant-id}.assets.AssetRegistered (ADR-0016).
 type AssetRegisteredEvent struct {
-	AssetID      string
-	TenantID     string
-	AssetType    string
-	FacilityID   string
+	AssetID       string
+	TenantID      string
+	AssetType     string
+	FacilityID    string
 	InstalledDate time.Time
+}
+
+// AssetAttributesUpdatedEvent is published when mutable Asset attributes change.
+// Subject: fsi.{tenant-id}.assets.AssetAttributesUpdated (ADR-0016).
+type AssetAttributesUpdatedEvent struct {
+	AssetID           string
+	TenantID          string
+	ChangedAttributes map[string]any
+}
+
+// AssetDecommissionedEvent is published when an Asset is decommissioned.
+// Subject: fsi.{tenant-id}.assets.AssetDecommissioned (ADR-0016).
+type AssetDecommissionedEvent struct {
+	AssetID            string
+	TenantID           string
+	DecommissionedDate time.Time
+	Reason             string
+}
+
+// AssetLocationSetEvent is published when an Asset's Location is set or updated.
+// Subject: fsi.{tenant-id}.assets.AssetLocationSet (ADR-0016).
+type AssetLocationSetEvent struct {
+	AssetID    string
+	TenantID   string
+	FacilityID string
+	LocationID string
 }

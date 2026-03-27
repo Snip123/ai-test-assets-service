@@ -35,17 +35,33 @@ func NewPublisher(js jetstream.JetStream) *Publisher {
 }
 
 func (p *Publisher) PublishAssetRegistered(ctx context.Context, event domain.AssetRegisteredEvent) error {
-	data, err := json.Marshal(event)
+	return p.publish(ctx, event.TenantID, "AssetRegistered", "1", event)
+}
+
+func (p *Publisher) PublishAssetAttributesUpdated(ctx context.Context, event domain.AssetAttributesUpdatedEvent) error {
+	return p.publish(ctx, event.TenantID, "AssetAttributesUpdated", "1", event)
+}
+
+func (p *Publisher) PublishAssetDecommissioned(ctx context.Context, event domain.AssetDecommissionedEvent) error {
+	return p.publish(ctx, event.TenantID, "AssetDecommissioned", "1", event)
+}
+
+func (p *Publisher) PublishAssetLocationSet(ctx context.Context, event domain.AssetLocationSetEvent) error {
+	return p.publish(ctx, event.TenantID, "AssetLocationSet", "1", event)
+}
+
+func (p *Publisher) publish(ctx context.Context, tenantID, eventType, version string, payload any) error {
+	data, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("marshal AssetRegistered: %w", err)
+		return fmt.Errorf("marshal %s: %w", eventType, err)
 	}
 
 	env := Envelope{
 		ID:         ulid.Make().String(),
-		Type:       "AssetRegistered",
+		Type:       eventType,
 		Source:     source,
-		Version:    "1",
-		TenantID:   event.TenantID,
+		Version:    version,
+		TenantID:   tenantID,
 		OccurredAt: time.Now().UTC(),
 		TraceID:    traceID(ctx),
 		Data:       data,
@@ -56,9 +72,9 @@ func (p *Publisher) PublishAssetRegistered(ctx context.Context, event domain.Ass
 		return fmt.Errorf("marshal envelope: %w", err)
 	}
 
-	subject := fmt.Sprintf("fsi.%s.assets.AssetRegistered", event.TenantID)
+	subject := fmt.Sprintf("fsi.%s.assets.%s", tenantID, eventType)
 	if _, err := p.js.Publish(ctx, subject, msg); err != nil {
-		return fmt.Errorf("publish AssetRegistered: %w", err)
+		return fmt.Errorf("publish %s: %w", eventType, err)
 	}
 	return nil
 }

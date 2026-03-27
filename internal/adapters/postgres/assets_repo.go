@@ -54,6 +54,40 @@ func (r *AssetRepo) Get(ctx context.Context, id, tenantID string) (domain.Asset,
 	return toDomain(row), nil
 }
 
+func (r *AssetRepo) Update(ctx context.Context, id, tenantID, name, serialNumber string) (domain.Asset, error) {
+	row, err := r.queries.UpdateAsset(ctx, db.UpdateAssetParams{
+		ID:           id,
+		TenantID:     tenantID,
+		Name:         name,
+		SerialNumber: sql.NullString{String: serialNumber, Valid: serialNumber != ""},
+	})
+	if err != nil {
+		return domain.Asset{}, fmt.Errorf("update asset: %w", err)
+	}
+	return toDomain(row), nil
+}
+
+func (r *AssetRepo) Decommission(ctx context.Context, id, tenantID string) (domain.Asset, error) {
+	row, err := r.queries.DecommissionAsset(ctx, db.DecommissionAssetParams{ID: id, TenantID: tenantID})
+	if err != nil {
+		return domain.Asset{}, fmt.Errorf("decommission asset: %w", err)
+	}
+	return toDomain(row), nil
+}
+
+func (r *AssetRepo) SetLocation(ctx context.Context, id, tenantID, facilityID, locationID string) (domain.Asset, error) {
+	row, err := r.queries.SetAssetLocation(ctx, db.SetAssetLocationParams{
+		ID:         id,
+		TenantID:   tenantID,
+		FacilityID: facilityID,
+		LocationID: sql.NullString{String: locationID, Valid: locationID != ""},
+	})
+	if err != nil {
+		return domain.Asset{}, fmt.Errorf("set asset location: %w", err)
+	}
+	return toDomain(row), nil
+}
+
 func toDomain(row db.Asset) domain.Asset {
 	return domain.Asset{
 		ID:           row.ID,
@@ -61,10 +95,10 @@ func toDomain(row db.Asset) domain.Asset {
 		Name:         row.Name,
 		AssetType:    row.AssetType,
 		FacilityID:   row.FacilityID,
+		LocationID:   row.LocationID.String,
 		SerialNumber: row.SerialNumber.String,
 		Status:       domain.AssetStatus(row.Status),
 		CreatedAt:    row.CreatedAt,
 		UpdatedAt:    row.UpdatedAt,
 	}
 }
-

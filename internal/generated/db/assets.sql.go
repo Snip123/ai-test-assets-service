@@ -13,7 +13,7 @@ import (
 const createAsset = `-- name: CreateAsset :one
 INSERT INTO assets (id, tenant_id, name, asset_type, facility_id, serial_number, status)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, tenant_id, name, asset_type, facility_id, serial_number, status, created_at, updated_at
+RETURNING id, tenant_id, name, asset_type, facility_id, location_id, serial_number, status, created_at, updated_at
 `
 
 type CreateAssetParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 		&i.Name,
 		&i.AssetType,
 		&i.FacilityID,
+		&i.LocationID,
 		&i.SerialNumber,
 		&i.Status,
 		&i.CreatedAt,
@@ -52,7 +53,7 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 }
 
 const getAsset = `-- name: GetAsset :one
-SELECT id, tenant_id, name, asset_type, facility_id, serial_number, status, created_at, updated_at FROM assets
+SELECT id, tenant_id, name, asset_type, facility_id, location_id, serial_number, status, created_at, updated_at FROM assets
 WHERE id = $1 AND tenant_id = $2
 `
 
@@ -70,6 +71,7 @@ func (q *Queries) GetAsset(ctx context.Context, arg GetAssetParams) (Asset, erro
 		&i.Name,
 		&i.AssetType,
 		&i.FacilityID,
+		&i.LocationID,
 		&i.SerialNumber,
 		&i.Status,
 		&i.CreatedAt,
@@ -79,7 +81,7 @@ func (q *Queries) GetAsset(ctx context.Context, arg GetAssetParams) (Asset, erro
 }
 
 const listAssets = `-- name: ListAssets :many
-SELECT id, tenant_id, name, asset_type, facility_id, serial_number, status, created_at, updated_at FROM assets
+SELECT id, tenant_id, name, asset_type, facility_id, location_id, serial_number, status, created_at, updated_at FROM assets
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 `
@@ -99,6 +101,7 @@ func (q *Queries) ListAssets(ctx context.Context, tenantID string) ([]Asset, err
 			&i.Name,
 			&i.AssetType,
 			&i.FacilityID,
+			&i.LocationID,
 			&i.SerialNumber,
 			&i.Status,
 			&i.CreatedAt,
@@ -115,4 +118,108 @@ func (q *Queries) ListAssets(ctx context.Context, tenantID string) ([]Asset, err
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateAsset = `-- name: UpdateAsset :one
+UPDATE assets
+SET name = $1, serial_number = $2, updated_at = NOW()
+WHERE id = $3 AND tenant_id = $4
+RETURNING id, tenant_id, name, asset_type, facility_id, location_id, serial_number, status, created_at, updated_at
+`
+
+type UpdateAssetParams struct {
+	Name         string         `json:"name"`
+	SerialNumber sql.NullString `json:"serial_number"`
+	ID           string         `json:"id"`
+	TenantID     string         `json:"tenant_id"`
+}
+
+func (q *Queries) UpdateAsset(ctx context.Context, arg UpdateAssetParams) (Asset, error) {
+	row := q.db.QueryRowContext(ctx, updateAsset,
+		arg.Name,
+		arg.SerialNumber,
+		arg.ID,
+		arg.TenantID,
+	)
+	var i Asset
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.AssetType,
+		&i.FacilityID,
+		&i.LocationID,
+		&i.SerialNumber,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const decommissionAsset = `-- name: DecommissionAsset :one
+UPDATE assets
+SET status = 'Decommissioned', updated_at = NOW()
+WHERE id = $1 AND tenant_id = $2
+RETURNING id, tenant_id, name, asset_type, facility_id, location_id, serial_number, status, created_at, updated_at
+`
+
+type DecommissionAssetParams struct {
+	ID       string `json:"id"`
+	TenantID string `json:"tenant_id"`
+}
+
+func (q *Queries) DecommissionAsset(ctx context.Context, arg DecommissionAssetParams) (Asset, error) {
+	row := q.db.QueryRowContext(ctx, decommissionAsset, arg.ID, arg.TenantID)
+	var i Asset
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.AssetType,
+		&i.FacilityID,
+		&i.LocationID,
+		&i.SerialNumber,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setAssetLocation = `-- name: SetAssetLocation :one
+UPDATE assets
+SET facility_id = $1, location_id = $2, updated_at = NOW()
+WHERE id = $3 AND tenant_id = $4
+RETURNING id, tenant_id, name, asset_type, facility_id, location_id, serial_number, status, created_at, updated_at
+`
+
+type SetAssetLocationParams struct {
+	FacilityID string         `json:"facility_id"`
+	LocationID sql.NullString `json:"location_id"`
+	ID         string         `json:"id"`
+	TenantID   string         `json:"tenant_id"`
+}
+
+func (q *Queries) SetAssetLocation(ctx context.Context, arg SetAssetLocationParams) (Asset, error) {
+	row := q.db.QueryRowContext(ctx, setAssetLocation,
+		arg.FacilityID,
+		arg.LocationID,
+		arg.ID,
+		arg.TenantID,
+	)
+	var i Asset
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.AssetType,
+		&i.FacilityID,
+		&i.LocationID,
+		&i.SerialNumber,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

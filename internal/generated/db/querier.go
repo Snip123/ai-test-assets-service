@@ -6,12 +6,19 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 type Querier interface {
 	CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset, error)
+	DecommissionAsset(ctx context.Context, arg DecommissionAssetParams) (Asset, error)
 	GetAsset(ctx context.Context, arg GetAssetParams) (Asset, error)
 	ListAssets(ctx context.Context, tenantID string) ([]Asset, error)
+	SetAssetLocation(ctx context.Context, arg SetAssetLocationParams) (Asset, error)
+	UpdateAsset(ctx context.Context, arg UpdateAssetParams) (Asset, error)
 }
 
 var _ Querier = (*Queries)(nil)
+
+// Ensure sql import is used (NullString in params).
+var _ = sql.NullString{}

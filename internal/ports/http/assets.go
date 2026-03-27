@@ -29,6 +29,9 @@ func (h *AssetHandler) RegisterRoutes(r chi.Router) {
 	r.Get("/v1/assets", h.listAssets)
 	r.Post("/v1/assets", h.registerAsset)
 	r.Get("/v1/assets/{id}", h.getAsset)
+	r.Patch("/v1/assets/{id}", h.updateAsset)
+	r.Post("/v1/assets/{id}/decommission", h.decommissionAsset)
+	r.Put("/v1/assets/{id}/location", h.setAssetLocation)
 }
 
 func (h *AssetHandler) listAssets(w http.ResponseWriter, r *http.Request) {
@@ -64,8 +67,7 @@ func (h *AssetHandler) registerAsset(w http.ResponseWriter, r *http.Request) {
 		attribute.String("platform_role", role),
 	)
 
-	// Authorisation: only FacilityManager and TenantAdmin can register assets
-	if role != "FacilityManager" && role != "TenantAdmin" && role != "FSICustomerSupport" && role != "FSIPlatformAdmin" {
+	if !canManageAssets(role) {
 		writeProblem(w, r, http.StatusForbidden, "insufficient-role",
 			"Insufficient Platform Role",
 			fmt.Sprintf("Platform Role %q cannot register Assets", role))
@@ -91,7 +93,6 @@ func (h *AssetHandler) registerAsset(w http.ResponseWriter, r *http.Request) {
 		SerialNumber: req.SerialNumber,
 	})
 	if err != nil {
-		// Validation errors from the application layer
 		writeProblem(w, r, http.StatusUnprocessableEntity, "validation-error", "Validation failed", err.Error())
 		return
 	}
@@ -125,7 +126,162 @@ func (h *AssetHandler) getAsset(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toAPIAsset(asset))
 }
 
-// ── response helpers ──────────────────────────────────────────────────────────
+func (h *AssetHandler) updateAsset(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "AssetHandler.updateAsset")
+	defer span.End()
+
+	tenantID := r.Header.Get("X-Tenant-ID")
+	role := r.Header.Get("X-Platform-Role")
+	id := chi.URLParam(r, "id")
+	span.SetAttributes(
+		attribute.String("tenant_id", tenantID),
+		attribute.String("asset_id", id),
+	)
+
+	if !canManageAssets(role) {
+		writeProblem(w, r, http.StatusForbidden, "insufficient-role",
+			"Insufficient Platform Role",
+			fmt.Sprintf("Platform Role %q cannot update Assets", role))
+		return
+	}
+
+	var req struct {
+		Name         string `json:"name"`
+		SerialNumber string `json:"serial_number"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-body", "Invalid request body", err.Error())
+		return
+	}
+
+	asset, err := h.svc.UpdateAsset(ctx, application.UpdateAssetCommand{
+		TenantID:     tenantID,
+		ID:           id,
+		Name:         req.Name,
+		SerialNumber: req.SerialNumber,
+	})
+	if err != nil {
+		switch err {
+		case application.ErrAssetNotFound:
+			writeProblem(w, r, http.StatusNotFound, "asset-not-found", "Asset Not Found",
+				fmt.Sprintf("Asset %q does not exist in this tenant", id))
+		default:
+			writeProblem(w, r, http.StatusUnprocessableEntity, "validation-error", "Validation failed", err.Error())
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toAPIAsset(asset))
+}
+
+func (h *AssetHandler) decommissionAsset(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "AssetHandler.decommissionAsset")
+	defer span.End()
+
+	tenantID := r.Header.Get("X-Tenant-ID")
+	role := r.Header.Get("X-Platform-Role")
+	id := chi.URLParam(r, "id")
+	span.SetAttributes(
+		attribute.String("tenant_id", tenantID),
+		attribute.String("asset_id", id),
+	)
+
+	if !canManageAssets(role) {
+		writeProblem(w, r, http.StatusForbidden, "insufficient-role",
+			"Insufficient Platform Role",
+			fmt.Sprintf("Platform Role %q cannot decommission Assets", role))
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-body", "Invalid request body", err.Error())
+		return
+	}
+
+	asset, err := h.svc.DecommissionAsset(ctx, application.DecommissionAssetCommand{
+		TenantID: tenantID,
+		ID:       id,
+		Reason:   req.Reason,
+	})
+	if err != nil {
+		switch err {
+		case application.ErrAssetNotFound:
+			writeProblem(w, r, http.StatusNotFound, "asset-not-found", "Asset Not Found",
+				fmt.Sprintf("Asset %q does not exist in this tenant", id))
+		case application.ErrAssetAlreadyDecommissioned:
+			writeProblem(w, r, http.StatusConflict, "asset-already-decommissioned",
+				"Asset Already Decommissioned",
+				fmt.Sprintf("Asset %q is already decommissioned", id))
+		default:
+			writeProblem(w, r, http.StatusInternalServerError, "decommission-failed", "Failed to decommission asset", err.Error())
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toAPIAsset(asset))
+}
+
+func (h *AssetHandler) setAssetLocation(w http.ResponseWriter, r *http.Request) {
+	ctx, span := tracer.Start(r.Context(), "AssetHandler.setAssetLocation")
+	defer span.End()
+
+	tenantID := r.Header.Get("X-Tenant-ID")
+	role := r.Header.Get("X-Platform-Role")
+	id := chi.URLParam(r, "id")
+	span.SetAttributes(
+		attribute.String("tenant_id", tenantID),
+		attribute.String("asset_id", id),
+	)
+
+	if !canManageAssets(role) {
+		writeProblem(w, r, http.StatusForbidden, "insufficient-role",
+			"Insufficient Platform Role",
+			fmt.Sprintf("Platform Role %q cannot set Asset Location", role))
+		return
+	}
+
+	var req struct {
+		FacilityID string `json:"facility_id"`
+		LocationID string `json:"location_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeProblem(w, r, http.StatusUnprocessableEntity, "invalid-body", "Invalid request body", err.Error())
+		return
+	}
+
+	asset, err := h.svc.SetAssetLocation(ctx, application.SetAssetLocationCommand{
+		TenantID:   tenantID,
+		ID:         id,
+		FacilityID: req.FacilityID,
+		LocationID: req.LocationID,
+	})
+	if err != nil {
+		switch err {
+		case application.ErrAssetNotFound:
+			writeProblem(w, r, http.StatusNotFound, "asset-not-found", "Asset Not Found",
+				fmt.Sprintf("Asset %q does not exist in this tenant", id))
+		default:
+			writeProblem(w, r, http.StatusUnprocessableEntity, "validation-error", "Validation failed", err.Error())
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toAPIAsset(asset))
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+// canManageAssets returns true for Platform Roles permitted to create/update/decommission Assets.
+func canManageAssets(role string) bool {
+	switch role {
+	case "FacilityManager", "TenantAdmin", "FSICustomerSupport", "FSIPlatformAdmin":
+		return true
+	}
+	return false
+}
 
 type apiAsset struct {
 	ID           string         `json:"id"`
@@ -133,6 +289,7 @@ type apiAsset struct {
 	Name         string         `json:"name"`
 	AssetType    string         `json:"asset_type"`
 	FacilityID   string         `json:"facility_id"`
+	LocationID   string         `json:"location_id,omitempty"`
 	SerialNumber string         `json:"serial_number,omitempty"`
 	Status       string         `json:"status"`
 	Display      map[string]any `json:"display"`
@@ -147,6 +304,7 @@ func toAPIAsset(a domain.Asset) apiAsset {
 		Name:         a.Name,
 		AssetType:    string(a.AssetType),
 		FacilityID:   a.FacilityID,
+		LocationID:   a.LocationID,
 		SerialNumber: a.SerialNumber,
 		Status:       string(a.Status),
 		Display: map[string]any{

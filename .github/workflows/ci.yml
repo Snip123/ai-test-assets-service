@@ -1,0 +1,16 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: Snip123/ai-test-platform-standards/.github/workflows/go-service.yml@main
+    with:
+      service-name: ai-test-assets-service
+      run-migrations: true
+    secrets: inherit

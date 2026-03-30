@@ -47,6 +47,14 @@ docs/features/ BDD Gherkin specs
 
 ## Docs
 
+### This service
 - [API spec](docs/api/openapi.yaml)
-- [Architecture decisions](docs/adr/)
-- [Feature specs](docs/features/)
+- [Architecture decisions](docs/adr/README.md)
+- [Feature specs](docs/features/README.md)
+- [Claude Code context](CLAUDE.md)
+
+### Platform (authoritative)
+- [Platform standards](https://github.com/Snip123/ai-test-platform-standards)
+- [Platform ADRs](https://github.com/Snip123/ai-test-platform-standards/tree/main/docs/adr)
+- [Ubiquitous language](https://github.com/Snip123/ai-test-platform-standards/blob/main/docs/domain/ubiquitous-language.md)
+- [Bounded contexts](https://github.com/Snip123/ai-test-platform-standards/blob/main/docs/domain/bounded-contexts.md)

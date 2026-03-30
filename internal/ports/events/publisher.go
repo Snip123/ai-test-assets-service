@@ -72,7 +72,7 @@ func (p *Publisher) publish(ctx context.Context, tenantID, eventType, version st
 		return fmt.Errorf("marshal envelope: %w", err)
 	}
 
-	subject := fmt.Sprintf("fsi.%s.assets.%s", tenantID, eventType)
+	subject := fmt.Sprintf("platform.%s.assets.%s", tenantID, eventType)
 	if _, err := p.js.Publish(ctx, subject, msg); err != nil {
 		return fmt.Errorf("publish %s: %w", eventType, err)
 	}

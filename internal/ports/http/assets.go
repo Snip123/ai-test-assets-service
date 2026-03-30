@@ -277,7 +277,7 @@ func (h *AssetHandler) setAssetLocation(w http.ResponseWriter, r *http.Request) 
 // canManageAssets returns true for Platform Roles permitted to create/update/decommission Assets.
 func canManageAssets(role string) bool {
 	switch role {
-	case "FacilityManager", "TenantAdmin", "FSICustomerSupport", "FSIPlatformAdmin":
+	case "FacilityManager", "TenantAdmin", "PlatformSupport", "PlatformAdmin":
 		return true
 	}
 	return false
@@ -335,7 +335,7 @@ func writeProblem(w http.ResponseWriter, r *http.Request, status int, errType, t
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"type":     fmt.Sprintf("https://fsi-platform.com/errors/%s", errType),
+		"type":     fmt.Sprintf("https://cmms-platform.example/errors/%s", errType),
 		"title":    title,
 		"status":   status,
 		"detail":   detail,

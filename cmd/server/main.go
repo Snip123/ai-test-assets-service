@@ -120,7 +120,7 @@ func tenantMiddleware(next http.Handler) http.Handler {
 		if r.Header.Get("X-Tenant-ID") == "" {
 			w.Header().Set("Content-Type", "application/problem+json")
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"type":"https://fsi-platform.com/errors/missing-tenant","title":"Missing Tenant","status":400,"detail":"X-Tenant-ID header is required"}`)
+			fmt.Fprint(w, `{"type":"https://cmms-platform.example/errors/missing-tenant","title":"Missing Tenant","status":400,"detail":"X-Tenant-ID header is required"}`)
 			return
 		}
 		next.ServeHTTP(w, r)
